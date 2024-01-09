@@ -20,13 +20,17 @@ if not OPENAI_API_KEY:
   raise ValueError("No OpenAI API key found in environment variables")
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
+# Initialize all available tools
+tool_data = core_functions.load_tools_from_directory('tools')
+
 # Create or load assistant
-assistant_id = assistant.create_assistant(client)
+assistant_id = assistant.create_assistant(client, tool_data)
 
 
 # Route to start the conversation
 @app.route('/start', methods=['GET'])
 def start_conversation():
+  core_functions.check_api_key()  # Check the API key
   logging.info("Starting a new conversation...")
   thread = client.beta.threads.create()
   logging.info(f"New thread created with ID: {thread.id}")
@@ -36,6 +40,7 @@ def start_conversation():
 # Route to chat with the assistant
 @app.route('/chat', methods=['POST'])
 def chat():
+  core_functions.check_api_key()  # Check the API key
   data = request.json
   thread_id = data.get('thread_id')
   user_input = data.get('message', '')
@@ -51,7 +56,7 @@ def chat():
   run = client.beta.threads.runs.create(thread_id=thread_id,
                                         assistant_id=assistant_id)
   # This processes any possible action requests
-  core_functions.process_tool_calls(client, thread_id, run.id)
+  core_functions.process_tool_calls(client, thread_id, run.id, tool_data)
 
   messages = client.beta.threads.messages.list(thread_id=thread_id)
   response = messages.data[0].content[0].text.value
