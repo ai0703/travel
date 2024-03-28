@@ -1,11 +1,6 @@
-import os
 import requests
-import re
-from datetime import datetime
-
-
-
-
+import os
+RAPIDAPI_KEY = os.environ['RAPIDAPI_KEY']
 # Tool configuration
 tool_config = {
     "type": "function",
@@ -29,7 +24,7 @@ tool_config = {
                 },
                 "currency_code": {
                     "type": "string",
-                    "description": "The currency code for the price retrieval (default: AED).",
+                    "description": "The currency code for the price retrieval (default: QAR).",
                     "default": "AED"
                 }
             },
@@ -57,7 +52,7 @@ def get_flight_prices(arguments):
         url = "https://booking-com15.p.rapidapi.com/api/v1/flights/searchDestination"
         querystring = {"query": city}
         headers = {
-            "X-RapidAPI-Key": "334656b9fcmsh7165acee3c3fd38p1aaa3ejsnb0d029f2d419",
+            "X-RapidAPI-Key": RAPIDAPI_KEY,
             "X-RapidAPI-Host": "booking-com15.p.rapidapi.com"
         }
 
@@ -87,7 +82,7 @@ def get_flight_prices(arguments):
         "currency_code": currency_code
     }
     headers = {
-        "X-RapidAPI-Key": "334656b9fcmsh7165acee3c3fd38p1aaa3ejsnb0d029f2d419",
+        "X-RapidAPI-Key": RAPIDAPI_KEY,
         "X-RapidAPI-Host": "booking-com15.p.rapidapi.com"
     }
 
