@@ -3,151 +3,97 @@ import requests
 import re
 from datetime import datetime
 
-# Environment variable for webhook URL
-WEBHOOK_URL = os.getenv('WEBHOOK_URL')  # Retrieve your webhook URL from the environment variable.
+
+
 
 # Tool configuration
-tool_schema = {
+tool_config = {
     "type": "function",
     "function": {
-        "name": "lead_capture",
-        "description": "Capture personalized travel information of the lead.",
+        "name": "get_flight_prices",
+        "description": "Retrieves flight details and prices for specified departure and destination cities, along with the departure date.",
         "parameters": {
             "type": "object",
             "properties": {
-                "name": {
+                "from_city": {
                     "type": "string",
-                    "description": "Full name of the user."
+                    "description": "The departure city."
                 },
-                "email": {
+                "to_city": {
                     "type": "string",
-                    "description": "Email address of the user."
+                    "description": "The destination city."
                 },
-                "phone_number": {
+                "depart_date": {
                     "type": "string",
-                    "description": "Phone number of the user."
+                    "description": "The departure date in YYYY-MM-DD format."
                 },
-                "destination_preference": {
+                "currency_code": {
                     "type": "string",
-                    "description": "Where are you dreaming of going?"
-                },
-                "travel_style": {
-                    "type": "string",
-                    "description": "Preference for travel style."
-                },
-                "pace_of_travel": {
-                    "type": "string",
-                    "description": "Preference for the pace of travel."
-                },
-                "trip_focus": {
-                    "type": "string",
-                    "description": "Main interest or theme for the trip."
-                },
-                "accommodation_preference": {
-                    "type": "string",
-                    "description": "Preference for accommodation."
-                },
-                "travel_companions_age_group": {
-                    "type": "string",
-                    "description": "Age group of travel companions."
-                },
-                "trip_duration": {
-                    "type": "string",
-                    "description": "Duration of the travel adventure."
-                },
-                "budget_per_person": {
-                    "type": "string",
-                    "description": "Budget range per person for the journey."
-                },
-                "preferred_start_date": {
-                    "type": "string",
-                    "description": "Preferred start date for the travel adventure."
+                    "description": "The currency code for the price retrieval (default: AED).",
+                    "default": "AED"
                 }
             },
-            "required": [
-                "name",
-                "email",
-                "phone_number",
-                "destination_preference",
-                "travel_style",
-                "pace_of_travel",
-                "trip_focus",
-                "accommodation_preference",
-                "travel_companions_age_group",
-                "trip_duration",
-                "budget_per_person",
-                "preferred_start_date"
-            ]
+            "required": ["from_city", "to_city", "depart_date"]
         }
     }
 }
 
-# Callback function for the 'custom_lead_capture' schema-defined function
-def lead_capture(arguments):
+# The callback function (Retrieves flight prices and details)
+def get_flight_prices(arguments):
     """
-    Capture lead's personalized travel details and send the data to a webhook.
+    Retrieves the minimum flight prices for a given route and departure date.
 
-    :param arguments: dict, Contains personalized information for capturing lead's travel details.
-    :return: dict or str, Response from the webhook or error message.
+    :param arguments: dict, Contains information about the route and date.
+                      Expected keys: from_city, to_city, depart_date, (optional) currency_code.
+    :return: dict or str, Flight price details in JSON format or error message.
     """
-    # Extracting information from arguments
-    name = arguments.get('name')
-    email = arguments.get('email')
-    phone_number = arguments.get('phone_number')
-    destination_preference = arguments.get('destination_preference')
-    travel_style = arguments.get('travel_style')
-    pace_of_travel = arguments.get('pace_of_travel')
-    trip_focus = arguments.get('trip_focus')
-    accommodation_preference = arguments.get('accommodation_preference')
-    travel_companions_age_group = arguments.get('travel_companions_age_group')
-    trip_duration = arguments.get('trip_duration')
-    budget_per_person = arguments.get('budget_per_person')
-    preferred_start_date = arguments.get('preferred_start_date')
+    from_city = arguments.get('from_city')
+    to_city = arguments.get('to_city')
+    depart_date = arguments.get('depart_date')
+    currency_code = arguments.get('currency_code', 'AED')  # Default currency code AED
 
-    # Validate email format
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        return "Invalid email format. Please provide a valid email address."
+    # Function to fetch airport ID based on city name
+    def get_airport_id(city):
+        url = "https://booking-com15.p.rapidapi.com/api/v1/flights/searchDestination"
+        querystring = {"query": city}
+        headers = {
+            "X-RapidAPI-Key": "334656b9fcmsh7165acee3c3fd38p1aaa3ejsnb0d029f2d419",
+            "X-RapidAPI-Host": "booking-com15.p.rapidapi.com"
+        }
 
-    # Prepare data payload for webhook
-    data = {
-        "name": name,
-        "email": email,
-        "phone_number": phone_number,
-        "destination_preference": destination_preference,
-        "travel_style": travel_style,
-        "pace_of_travel": pace_of_travel,
-        "trip_focus": trip_focus,
-        "accommodation_preference": accommodation_preference,
-        "travel_companions_age_group": travel_companions_age_group,
-        "trip_duration": trip_duration,
-        "budget_per_person": budget_per_person,
-        "preferred_start_date": preferred_start_date
+        response = requests.get(url, headers=headers, params=querystring)
+        if response.status_code == 200:
+            data = response.json()
+            if data and 'data' in data and len(data['data']) > 0:
+                airport_id = data['data'][0]['id']
+                return airport_id
+            else:
+                return None
+        else:
+            return None
+
+    # Function to retrieve flight prices
+    from_airport_id = get_airport_id(from_city)
+    to_airport_id = get_airport_id(to_city)
+
+    if not from_airport_id or not to_airport_id:
+        return "Unable to fetch airport IDs. Please check city names and try again."
+
+    url = "https://booking-com15.p.rapidapi.com/api/v1/flights/getMinPrice"
+    querystring = {
+        "fromId": from_airport_id,
+        "toId": to_airport_id,
+        "departDate": depart_date,
+        "currency_code": currency_code
+    }
+    headers = {
+        "X-RapidAPI-Key": "334656b9fcmsh7165acee3c3fd38p1aaa3ejsnb0d029f2d419",
+        "X-RapidAPI-Host": "booking-com15.p.rapidapi.com"
     }
 
-    # Send data to webhook
-    try:
-        response = requests.post(WEBHOOK_URL, json=data)
-        if response.status_code in [200, 201]:
-            return "Lead capture successful."
-        else:
-            return f"Error capturing lead details: {response.text}"
-    except requests.exceptions.RequestException as e:
-        return f"Failed to send data to the webhook: {e}"
+    response = requests.get(url, headers=headers, params=querystring)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return "Failed to retrieve flight prices. Status code: {}".format(response.status_code)
 
-# Example usage of the 'custom_lead_capture' function:
-# lead_info = {
-#     'name': 'John Doe',
-#     'email': 'john.doe@example.com',
-#     'phone_number': '123-456-7890',
-#     'destination_preference': 'Paris',
-#     'travel_style': 'Private Guided',
-#     'pace_of_travel': 'Relaxed',
-#     'trip_focus': 'Cultural',
-#     'accommodation_preference': 'Luxury - 5 star',
-#     'travel_companions_age_group': '36 - 49',
-#     'trip_duration': '2 weeks',
-#     'budget_per_person': '$5000 - $7000',
-#     'preferred_start_date': '2024-05-01'
-# }
-# lead_capture_response = custom_lead_capture(lead_info)
-# print(lead_capture_response)
