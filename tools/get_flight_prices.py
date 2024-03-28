@@ -45,7 +45,7 @@ def get_flight_prices(arguments):
     from_city = arguments.get('from_city')
     to_city = arguments.get('to_city')
     depart_date = arguments.get('depart_date')
-    currency_code = arguments.get('currency_code', 'AED')  # Default currency code AED
+    currency_code = arguments.get('currency_code', 'QAR')  # Default currency code AED
 
     # Function to fetch airport ID based on city name
     def get_airport_id(city):
